@@ -58,7 +58,8 @@ python -m build
 ```
 
 CI runs linting, tests, and package builds on Linux with Python 3.10, 3.12, and 3.14,
-plus a Windows/Python 3.12 compatibility job. CodeQL scans both Actions and Python.
+plus a Windows/Python 3.12 compatibility job. GitHub's repository-level default CodeQL setup
+analyzes Python on pull requests.
 
 ## Evidence semantics and limitations
 

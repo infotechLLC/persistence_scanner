@@ -7,6 +7,8 @@
 - Added tri-state evidence fields and ATT&CK `T1053.005` scheduled-task mapping.
 - Added parser/collector regression tests, Ruff configuration, package build validation, and
   Linux/Windows CI with SHA-pinned third-party actions.
+- Removed the superseded advanced CodeQL workflow; GitHub's enabled default CodeQL setup now
+  provides the verified Python analysis path.
 - Documented operational limitations and retained the legacy ZIP as provenance only.
 
 ## 2026-05-29
