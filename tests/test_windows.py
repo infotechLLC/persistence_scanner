@@ -28,6 +28,7 @@ from persistence_scanner.windows import (
 @dataclass(frozen=True)
 class _FakeKey:
     path: str
+    view: int = 0
 
 
 class _FakeRegistry:
@@ -95,6 +96,34 @@ class _DeniedParametersRegistry(_FakeRegistry):
         return super().OpenKey(root, subkey, reserved, access)
 
 
+class _FakeViewRegistry(_FakeRegistry):
+    KEY_WOW64_64KEY = 0x0100
+    KEY_WOW64_32KEY = 0x0200
+
+    def OpenKey(
+        self,
+        root: str | _FakeKey,
+        subkey: str,
+        reserved: int,
+        access: int,
+    ) -> _FakeKey:
+        key = super().OpenKey(root, subkey, reserved, access)
+        view = access & (self.KEY_WOW64_64KEY | self.KEY_WOW64_32KEY)
+        return _FakeKey(key.path, view)
+
+    def EnumValue(self, key: _FakeKey, index: int) -> tuple[str, object, int]:
+        values_by_view = self.nodes[key.path].get("values_by_view", {})
+        assert isinstance(values_by_view, dict)
+        values = values_by_view.get(key.view, [])
+        assert isinstance(values, list)
+        try:
+            value = values[index]
+        except IndexError as exc:
+            raise OSError from exc
+        assert isinstance(value, tuple)
+        return value
+
+
 def test_extract_executable_path_handles_windows_quoting_and_environment() -> None:
     environment = {"SystemRoot": r"C:\Windows"}
 
@@ -148,6 +177,32 @@ def test_registry_run_collector_normalizes_values_without_executing_them() -> No
     assert entry.user_writable_path is True
     assert entry.signed is None
     assert entry.metadata["source"] == "registry_run"
+
+
+def test_registry_run_collector_preserves_identical_values_from_both_views() -> None:
+    run_key = r"HKLM\Software\Microsoft\Windows\CurrentVersion\Run"
+    value = ("Updater", r"C:\Program Files\Vendor\updater.exe", 1)
+    registry = _FakeViewRegistry(
+        {
+            run_key: {
+                "values_by_view": {
+                    _FakeViewRegistry.KEY_WOW64_64KEY: [value],
+                    _FakeViewRegistry.KEY_WOW64_32KEY: [value],
+                }
+            }
+        }
+    )
+
+    result = collect_registry_run_entries(registry, environ={})
+
+    assert result.complete
+    assert len(result.entries) == 2
+    assert {entry.metadata["registry_view"] for entry in result.entries} == {
+        "32-bit",
+        "64-bit",
+    }
+    assert len({entry.location for entry in result.entries}) == 2
+    assert all(f"[{entry.metadata['registry_view']}]" in entry.location for entry in result.entries)
 
 
 def test_user_profile_matching_requires_a_path_boundary() -> None:
@@ -251,9 +306,9 @@ def test_scheduled_task_xml_is_parsed_and_mapped_to_attack(tmp_path: Path) -> No
       <Principals><Principal><UserId>alice</UserId></Principal></Principals>
       <Actions Context="Author">
         <Exec>
-          <Command>%APPDATA%\\agent.exe</Command>
+          <Command>agent.exe</Command>
           <Arguments>--quiet</Arguments>
-          <WorkingDirectory>%APPDATA%</WorkingDirectory>
+          <WorkingDirectory>%APPDATA%\\Vendor</WorkingDirectory>
         </Exec>
       </Actions>
     </Task>
@@ -272,7 +327,10 @@ def test_scheduled_task_xml_is_parsed_and_mapped_to_attack(tmp_path: Path) -> No
     assert actions[0].arguments == "--quiet"
     assert result.complete
     assert len(result.entries) == 1
-    finding = evaluate_autorun_entry(result.entries[0])
+    entry = result.entries[0]
+    assert entry.metadata["target_path"] == (r"C:\Users\alice\AppData\Roaming\Vendor\agent.exe")
+    assert entry.user_writable_path is True
+    finding = evaluate_autorun_entry(entry)
     assert finding is not None
     assert finding.technique_id == "T1053.005"
     assert finding.severity == Severity.HIGH

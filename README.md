@@ -58,8 +58,9 @@ python -m build
 ```
 
 CI runs linting, tests, and package builds on Linux with Python 3.10, 3.12, and 3.14,
-plus a Windows/Python 3.12 compatibility job. GitHub's repository-level default CodeQL setup
-analyzes Python on pull requests.
+plus unit and read-only live-collector smoke coverage on Windows/Python 3.12. The smoke check
+prints aggregate counts only, not collected locations or commands. GitHub's repository-level
+default CodeQL setup analyzes Python on pull requests.
 
 ## Evidence semantics and limitations
 

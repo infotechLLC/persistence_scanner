@@ -1,8 +1,8 @@
 # RISKS
 
-- The extracted collectors have deterministic unit coverage but have not yet been validated on
-  representative live Windows endpoints. Treat output as experimental until parity testing is
-  complete.
+- The extracted collectors have deterministic unit coverage and a GitHub-hosted Windows smoke
+  check, but have not yet been validated on representative endpoints. Treat output as
+  experimental until version/architecture coverage and Autoruns parity testing are complete.
 - Authenticode status remains unknown, user-writability is inferred from environment roots rather
   than effective ACLs, and Startup shortcut targets are unresolved.
 - Coverage is limited to Run keys, Startup folders, services, and executable scheduled-task

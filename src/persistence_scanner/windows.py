@@ -146,7 +146,7 @@ def collect_registry_run_entries(
     environment = dict(os.environ if environ is None else environ)
     entries: list[AutorunEntry] = []
     diagnostics: list[CollectionDiagnostic] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
 
     for hive_label, hive_attribute, subkey, scope in _RUN_LOCATIONS:
         root = getattr(registry, hive_attribute)
@@ -177,8 +177,12 @@ def collect_registry_run_entries(
                     if not isinstance(value, str) or not value.strip():
                         continue
 
-                    value_location = f"{location}\\{name or '(Default)'}"
-                    identity = (value_location.casefold(), value.casefold())
+                    value_location = f"{location} [{view_name}]\\{name or '(Default)'}"
+                    identity = (
+                        view_name.casefold(),
+                        value_location.casefold(),
+                        value.casefold(),
+                    )
                     if identity in seen:
                         continue
                     seen.add(identity)
@@ -386,6 +390,7 @@ def collect_scheduled_task_entries(
             scope = _task_scope(user_id)
             for action_index, action in enumerate(actions, start=1):
                 suffix = f"#Action{action_index}" if len(actions) > 1 else ""
+                target_path = _scheduled_task_target(action, environment)
                 metadata = {
                     "task_name": relative_name,
                     "action_index": str(action_index),
@@ -403,6 +408,8 @@ def collect_scheduled_task_entries(
                         name=relative_name,
                         environ=environment,
                         metadata=metadata,
+                        known_file_path=target_path,
+                        search_path=False,
                     )
                 )
 
@@ -493,10 +500,11 @@ def _entry_from_command(
     environ: Mapping[str, str],
     metadata: Mapping[str, str],
     known_file_path: str | None = None,
+    search_path: bool = True,
 ) -> AutorunEntry:
     expanded_command = expand_windows_environment(command, environ)
     target = known_file_path or extract_executable_path(expanded_command, environ)
-    resolved_target = _resolve_target(target)
+    resolved_target = _resolve_target(target, search_path=search_path)
     exists_on_disk: bool | None = None
     digest: str | None = None
 
@@ -530,14 +538,29 @@ def _entry_from_command(
     )
 
 
-def _resolve_target(target: str | None) -> str | None:
+def _resolve_target(target: str | None, *, search_path: bool = True) -> str | None:
     if not target:
         return None
     if _is_absolute_path(target):
         return target
-    if "\\" not in target and "/" not in target:
+    if search_path and "\\" not in target and "/" not in target:
         return shutil.which(target) or target
     return target
+
+
+def _scheduled_task_target(
+    action: ScheduledTaskAction,
+    environ: Mapping[str, str],
+) -> str | None:
+    target = extract_executable_path(action.command_line, environ)
+    if not target or _is_absolute_path(target):
+        return target
+
+    working_directory = expand_windows_environment(action.working_directory, environ)
+    working_directory = working_directory.strip().strip('"')
+    if not working_directory or not _is_absolute_path(working_directory):
+        return target
+    return str(PureWindowsPath(working_directory) / PureWindowsPath(target))
 
 
 def _is_absolute_path(path: str) -> bool:

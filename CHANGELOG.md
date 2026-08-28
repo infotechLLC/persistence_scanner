@@ -9,6 +9,9 @@
   Linux/Windows CI with SHA-pinned third-party actions.
 - Removed the superseded advanced CodeQL workflow; GitHub's enabled default CodeQL setup now
   provides the verified Python analysis path.
+- Preserved distinct 32-bit and 64-bit Run-key records even when their value name and command
+  match, and resolved relative scheduled-task commands against their configured working directory.
+- Added an aggregate-only, read-only live Windows collector smoke check to pull-request CI.
 - Documented operational limitations and retained the legacy ZIP as provenance only.
 
 ## 2026-05-29
