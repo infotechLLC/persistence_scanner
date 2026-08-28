@@ -4,13 +4,19 @@
 Provide an auditable Windows persistence detection and triage layer aligned to ATT&CK persistence surfaces.
 
 ## Development State
-FORMATION
+DEVELOPMENT / EXPERIMENTAL
 
-## 2026-05-29 Cycle Summary
-- Established a source-controlled Python package around normalized autorun findings.
-- Added ATT&CK-oriented triage rules for Run/RunOnce, Startup, and service persistence surfaces.
-- Replaced placeholder security guidance with repository-specific reporting instructions.
+## 2026-08-28 Cycle Summary
+- Extracted read-only collectors for Run/RunOnce keys, Startup folders, Windows services, and
+  Task Scheduler XML from the legacy archive into source-controlled package code.
+- Added explicit partial-scan diagnostics instead of silently converting collection failures
+  into empty results.
+- Made signature, file-existence, and user-writability evidence tri-state so unknown evidence
+  is not misclassified.
+- Added scheduled-task ATT&CK mapping, deterministic parser/collector tests, package linting,
+  distribution builds, and real Linux/Windows CI jobs.
 
 ## Validation
-- Source-level review completed through the GitHub connector.
-- Local test execution could not be run in this session because the shell runtime was unavailable.
+- Local Linux/Python 3.12: Ruff passed; 13 tests passed; sdist and wheel builds passed.
+- GitHub-hosted Linux/Windows CI and live-host Windows collection remain to be validated after
+  the pull request is opened.

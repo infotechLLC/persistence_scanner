@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Mapping
 
 
 class Severity(str, Enum):
@@ -13,7 +13,7 @@ class Severity(str, Enum):
     HIGH = "high"
 
     @classmethod
-    def max(cls, *levels: "Severity") -> "Severity":
+    def max(cls, *levels: Severity) -> Severity:
         order = {cls.LOW: 0, cls.MEDIUM: 1, cls.HIGH: 2}
         return max(levels, key=lambda level: order[level])
 
@@ -25,9 +25,9 @@ class AutorunEntry:
     location: str
     command: str
     scope: str = "machine"
-    signed: bool = True
-    exists_on_disk: bool = True
-    user_writable_path: bool = False
+    signed: bool | None = None
+    exists_on_disk: bool | None = None
+    user_writable_path: bool | None = None
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

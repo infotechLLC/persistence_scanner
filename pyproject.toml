@@ -4,14 +4,32 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "persistence-scanner"
-version = "0.1.0"
-description = "Windows persistence triage models and ATT&CK-oriented rule helpers"
+version = "0.2.0"
+description = "Auditable Windows persistence collection and ATT&CK-oriented triage"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "infotechLLC" }]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2,<2",
+    "pytest>=8.3,<10",
+    "ruff>=0.9,<1",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "UP"]
