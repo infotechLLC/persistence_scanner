@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+- Emitted Windows service `ServiceDll` values as separate normalized targets so findings, hashes,
+  and path evidence identify the artifact that triggered the rule.
+- Distinguished absent Startup directories from inaccessible roots and reported access failures as
+  partial-collection diagnostics.
+
 ## 0.2.0 - 2026-08-28
 - Added read-only Windows collectors for Run keys, Startup folders, services, and executable
   scheduled-task actions.

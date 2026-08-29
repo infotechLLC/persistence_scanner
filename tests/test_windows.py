@@ -225,10 +225,14 @@ def test_user_profile_matching_requires_a_path_boundary() -> None:
     assert result.entries[0].user_writable_path is False
 
 
-def test_service_collector_reads_image_path_and_service_dll() -> None:
+def test_service_collector_emits_service_dll_as_separate_target_evidence(
+    tmp_path: Path,
+) -> None:
     service_root = r"HKLM\SYSTEM\CurrentControlSet\Services"
     service_key = service_root + r"\TelemetryAgent"
     parameters_key = service_key + r"\Parameters"
+    service_dll = tmp_path / "telemetry.dll"
+    service_dll.write_bytes(b"service dll fixture")
     registry = _FakeRegistry(
         {
             service_root: {"subkeys": ["TelemetryAgent"]},
@@ -241,7 +245,7 @@ def test_service_collector_reads_image_path_and_service_dll() -> None:
             },
             parameters_key: {
                 "named_values": {
-                    "ServiceDll": r"C:\Users\Public\telemetry.dll",
+                    "ServiceDll": str(service_dll),
                 }
             },
         }
@@ -251,16 +255,32 @@ def test_service_collector_reads_image_path_and_service_dll() -> None:
         registry,
         environ={
             "SystemRoot": r"C:\Windows",
-            "PUBLIC": r"C:\Users\Public",
+            "TEMP": str(tmp_path),
         },
     )
 
     assert result.complete
-    assert len(result.entries) == 1
-    entry = result.entries[0]
-    assert entry.metadata["service_dll"] == r"C:\Users\Public\telemetry.dll"
-    assert entry.user_writable_path is True
-    assert entry.metadata["start_type"] == "2"
+    assert len(result.entries) == 2
+    image_entry = next(
+        entry for entry in result.entries if entry.metadata["registry_value"] == "ImagePath"
+    )
+    dll_entry = next(
+        entry for entry in result.entries if entry.metadata["registry_value"] == "ServiceDll"
+    )
+
+    assert image_entry.command == r"%SystemRoot%\System32\svchost.exe -k netsvcs"
+    assert image_entry.user_writable_path is False
+    assert dll_entry.location.endswith(r"TelemetryAgent\Parameters\ServiceDll")
+    assert dll_entry.command == str(service_dll)
+    assert dll_entry.metadata["target_path"] == str(service_dll)
+    assert dll_entry.metadata["sha256"] == hashlib.sha256(service_dll.read_bytes()).hexdigest()
+    assert dll_entry.exists_on_disk is True
+    assert dll_entry.user_writable_path is True
+    assert dll_entry.metadata["start_type"] == "2"
+
+    finding = evaluate_autorun_entry(dll_entry)
+    assert finding is not None
+    assert finding.evidence == (str(service_dll),)
 
 
 def test_service_is_retained_when_optional_parameters_are_denied() -> None:
@@ -298,6 +318,35 @@ def test_startup_collector_hashes_the_artifact_and_marks_user_scope(tmp_path: Pa
     assert entry.exists_on_disk is True
     assert entry.user_writable_path is True
     assert entry.metadata["sha256"] == hashlib.sha256(startup_file.read_bytes()).hexdigest()
+
+
+def test_startup_collector_distinguishes_missing_and_inaccessible_roots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_root = tmp_path / "missing"
+    denied_root = tmp_path / "denied"
+    real_stat = Path.stat
+
+    def deny_selected_root(path: Path, *args: object, **kwargs: object) -> object:
+        if path == denied_root:
+            raise PermissionError("startup root denied")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", deny_selected_root)
+
+    result = collect_startup_entries(
+        roots=(("user", str(missing_root)), ("machine", str(denied_root))),
+        environ={},
+    )
+
+    assert result.entries == ()
+    assert not result.complete
+    assert len(result.diagnostics) == 1
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.source == "startup_folder"
+    assert diagnostic.location == str(denied_root)
+    assert diagnostic.message == "startup root denied"
 
 
 def test_scheduled_task_xml_is_parsed_and_mapped_to_attack(tmp_path: Path) -> None:
