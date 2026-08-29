@@ -271,6 +271,9 @@ def collect_service_entries(
                     "start_type": "" if start_type is _MISSING else str(start_type),
                     "service_type": "" if service_type is _MISSING else str(service_type),
                 }
+                image_metadata = {**service_metadata, "registry_value": "ImagePath"}
+                if isinstance(service_dll, str) and service_dll.strip():
+                    image_metadata["service_dll"] = service_dll
                 entries.append(
                     _entry_from_command(
                         location=service_location,
@@ -279,7 +282,7 @@ def collect_service_entries(
                         source="service",
                         name=service_name,
                         environ=environment,
-                        metadata={**service_metadata, "registry_value": "ImagePath"},
+                        metadata=image_metadata,
                     )
                 )
                 if isinstance(service_dll, str) and service_dll.strip():

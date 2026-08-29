@@ -270,6 +270,7 @@ def test_service_collector_emits_service_dll_as_separate_target_evidence(
 
     assert image_entry.command == r"%SystemRoot%\System32\svchost.exe -k netsvcs"
     assert image_entry.user_writable_path is False
+    assert image_entry.metadata["service_dll"] == str(service_dll)
     assert dll_entry.location.endswith(r"TelemetryAgent\Parameters\ServiceDll")
     assert dll_entry.command == str(service_dll)
     assert dll_entry.metadata["target_path"] == str(service_dll)
