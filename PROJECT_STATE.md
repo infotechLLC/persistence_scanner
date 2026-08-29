@@ -9,7 +9,8 @@ DEVELOPMENT / EXPERIMENTAL
 ## 2026-08-29 Correctness Follow-up
 - Split Windows service `ImagePath` and `ServiceDll` data into separate normalized targets so
   findings cannot attribute DLL risk to a host process.
-- Guarded Startup-root metadata reads and preserved access failures as collection diagnostics.
+- Guarded Startup and Task Scheduler root metadata reads, rejected non-directory task roots, and
+  preserved access failures as collection diagnostics.
 
 ## 2026-08-28 Cycle Summary
 - Extracted read-only collectors for Run/RunOnce keys, Startup folders, Windows services, and
@@ -23,7 +24,7 @@ DEVELOPMENT / EXPERIMENTAL
   verified default CodeQL Python analysis.
 
 ## Validation
-- Local Linux/Python 3.12: Ruff passed; 15 tests passed; sdist and wheel builds passed.
+- Local Linux/Python 3.12: Ruff passed; 16 tests passed; sdist and wheel builds passed.
 - Pull request CI passed on Linux/Python 3.10, 3.12, and 3.14 and Windows/Python 3.12; GitHub's
   default CodeQL Python analysis also passed.
 - Pull-request CI now requires an aggregate-only live collection smoke check on its hosted

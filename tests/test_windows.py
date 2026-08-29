@@ -386,6 +386,34 @@ def test_scheduled_task_xml_is_parsed_and_mapped_to_attack(tmp_path: Path) -> No
     assert finding.severity == Severity.HIGH
 
 
+def test_scheduled_task_root_failures_are_explicit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_root = tmp_path / "missing"
+    file_root = tmp_path / "not-a-directory"
+    file_root.write_text("not a task directory", encoding="utf-8")
+    denied_root = tmp_path / "denied"
+    real_stat = Path.stat
+
+    def deny_selected_root(path: Path, *args: object, **kwargs: object) -> object:
+        if path == denied_root:
+            raise PermissionError("task root denied")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", deny_selected_root)
+
+    missing = collect_scheduled_task_entries(task_root=missing_root, environ={})
+    not_directory = collect_scheduled_task_entries(task_root=file_root, environ={})
+    denied = collect_scheduled_task_entries(task_root=denied_root, environ={})
+
+    assert missing.diagnostics[0].message == "task directory does not exist"
+    assert not_directory.diagnostics[0].message == "task root is not a directory"
+    assert denied.diagnostics[0].source == "scheduled_task"
+    assert denied.diagnostics[0].location == str(denied_root)
+    assert denied.diagnostics[0].message == "task root denied"
+
+
 def test_malformed_task_is_reported_as_incomplete(tmp_path: Path) -> None:
     (tmp_path / "BrokenTask").write_text("<Task>", encoding="utf-8")
 

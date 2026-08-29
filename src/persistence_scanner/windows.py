@@ -12,6 +12,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
@@ -375,11 +376,22 @@ def collect_scheduled_task_entries(
             message="SystemRoot is not available",
         )
         return CollectionResult((), (diagnostic,))
-    if not root.exists():
+    try:
+        root_status = root.stat()
+    except FileNotFoundError:
         diagnostic = CollectionDiagnostic(
             source="scheduled_task",
             location=str(root),
             message="task directory does not exist",
+        )
+        return CollectionResult((), (diagnostic,))
+    except OSError as exc:
+        return CollectionResult((), (_diagnostic("scheduled_task", str(root), exc),))
+    if not stat.S_ISDIR(root_status.st_mode):
+        diagnostic = CollectionDiagnostic(
+            source="scheduled_task",
+            location=str(root),
+            message="task root is not a directory",
         )
         return CollectionResult((), (diagnostic,))
 
