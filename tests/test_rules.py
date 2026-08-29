@@ -1,4 +1,9 @@
-from persistence_scanner import AutorunEntry, Severity, evaluate_autorun_entry, find_persistence_risks
+from persistence_scanner import (
+    AutorunEntry,
+    Severity,
+    evaluate_autorun_entry,
+    find_persistence_risks,
+)
 
 
 def test_run_key_with_user_writable_unsigned_binary_is_high_risk() -> None:

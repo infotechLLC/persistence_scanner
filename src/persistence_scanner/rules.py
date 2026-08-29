@@ -26,15 +26,15 @@ def evaluate_autorun_entry(entry: AutorunEntry) -> PersistenceFinding | None:
     rationale: list[str] = []
     severity = Severity.LOW
 
-    if not entry.exists_on_disk:
+    if entry.exists_on_disk is False:
         rationale.append("target executable is missing on disk")
         severity = Severity.max(severity, Severity.MEDIUM)
 
-    if entry.user_writable_path:
+    if entry.user_writable_path is True:
         rationale.append("target resolves to a user-writable path")
         severity = Severity.max(severity, Severity.HIGH)
 
-    if not entry.signed:
+    if entry.signed is False:
         rationale.append("target binary is unsigned")
         severity = Severity.max(severity, Severity.MEDIUM)
 
@@ -63,12 +63,18 @@ def evaluate_autorun_entry(entry: AutorunEntry) -> PersistenceFinding | None:
 
 def find_persistence_risks(entries: Iterable[AutorunEntry]) -> list[PersistenceFinding]:
     """Evaluate a batch of autorun entries and return the suspicious subset."""
-    findings = [finding for finding in (evaluate_autorun_entry(entry) for entry in entries) if finding]
+    findings = [
+        finding for finding in (evaluate_autorun_entry(entry) for entry in entries) if finding
+    ]
     severity_rank = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
-    return sorted(findings, key=lambda finding: (severity_rank[finding.severity], finding.location.lower()))
+    return sorted(
+        findings, key=lambda finding: (severity_rank[finding.severity], finding.location.lower())
+    )
 
 
 def _technique_for_location(location_lower: str) -> str:
+    if "task scheduler" in location_lower or "scheduled_task" in location_lower:
+        return "T1053.005"
     if "startup" in location_lower or "\\run" in location_lower:
         return "T1547.001"
     if "service" in location_lower:
