@@ -11,7 +11,7 @@ explainable rules. A finding is triage evidence, not a malware verdict.
 - `HKCU` and `HKLM` Run, RunOnce, and Explorer policy Run values, including 32-bit and
   64-bit registry views.
 - Current-user and all-users Startup folders.
-- Windows service `ImagePath` values and associated `ServiceDll` metadata.
+- Windows service `ImagePath` and `ServiceDll` values as separate target-evidence records.
 - Task Scheduler XML definitions with executable (`Exec`) actions.
 - ATT&CK mappings for Registry Run Keys / Startup Folder (`T1547.001`), Windows services
   (`T1543.003`), and scheduled tasks (`T1053.005`).

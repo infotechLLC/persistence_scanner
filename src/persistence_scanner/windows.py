@@ -12,6 +12,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
@@ -266,28 +267,37 @@ def collect_service_entries(
                         _diagnostic("service", f"{service_location}\\Parameters", exc)
                     )
                     service_dll = _MISSING
-                metadata = {
+                service_metadata = {
                     "service_name": service_name,
                     "start_type": "" if start_type is _MISSING else str(start_type),
                     "service_type": "" if service_type is _MISSING else str(service_type),
                 }
+                image_metadata = {**service_metadata, "registry_value": "ImagePath"}
                 if isinstance(service_dll, str) and service_dll.strip():
-                    metadata["service_dll"] = service_dll
-
-                entry = _entry_from_command(
-                    location=service_location,
-                    command=image_path,
-                    scope="machine",
-                    source="service",
-                    name=service_name,
-                    environ=environment,
-                    metadata=metadata,
+                    image_metadata["service_dll"] = service_dll
+                entries.append(
+                    _entry_from_command(
+                        location=service_location,
+                        command=image_path,
+                        scope="machine",
+                        source="service",
+                        name=service_name,
+                        environ=environment,
+                        metadata=image_metadata,
+                    )
                 )
-                if isinstance(service_dll, str) and _is_probably_user_writable(
-                    expand_windows_environment(service_dll, environment), environment
-                ):
-                    entry = replace(entry, user_writable_path=True)
-                entries.append(entry)
+                if isinstance(service_dll, str) and service_dll.strip():
+                    entries.append(
+                        _entry_from_command(
+                            location=f"{service_location}\\Parameters\\ServiceDll",
+                            command=service_dll,
+                            scope="machine",
+                            source="service",
+                            name=f"{service_name}:ServiceDll",
+                            environ=environment,
+                            metadata={**service_metadata, "registry_value": "ServiceDll"},
+                        )
+                    )
             except OSError as exc:
                 diagnostics.append(_diagnostic("service", service_location, exc))
             finally:
@@ -312,7 +322,12 @@ def collect_startup_entries(
 
     for scope, root_text in startup_roots:
         root = Path(root_text)
-        if not root.exists():
+        try:
+            root.stat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            diagnostics.append(_diagnostic("startup_folder", str(root), exc))
             continue
         try:
             directory_entries = sorted(os.scandir(root), key=lambda item: item.name.casefold())
@@ -361,11 +376,22 @@ def collect_scheduled_task_entries(
             message="SystemRoot is not available",
         )
         return CollectionResult((), (diagnostic,))
-    if not root.exists():
+    try:
+        root_status = root.stat()
+    except FileNotFoundError:
         diagnostic = CollectionDiagnostic(
             source="scheduled_task",
             location=str(root),
             message="task directory does not exist",
+        )
+        return CollectionResult((), (diagnostic,))
+    except OSError as exc:
+        return CollectionResult((), (_diagnostic("scheduled_task", str(root), exc),))
+    if not stat.S_ISDIR(root_status.st_mode):
+        diagnostic = CollectionDiagnostic(
+            source="scheduled_task",
+            location=str(root),
+            message="task root is not a directory",
         )
         return CollectionResult((), (diagnostic,))
 
